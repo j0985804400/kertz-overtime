@@ -139,8 +139,8 @@
           <div id="autoTypeBadge" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-2 text-sm text-center font-bold text-slate-300">--</div>
         </div>
         <div class="col-span-12 flex justify-end">
-          <label class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700">
-            <input type="checkbox" id="isHolidayCheck" onchange="calculatePreview()" class="w-3.5 h-3.5 accent-rose-500">
+          <label class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700 cursor-pointer">
+            <input type="checkbox" id="isHolidayCheck" onchange="handleInputChange()" class="w-3.5 h-3.5 accent-rose-500">
             <span>強制標記為國定紅字 (全天1.5)</span>
           </label>
         </div>
@@ -153,7 +153,7 @@
         </div>
         <div class="flex items-center space-x-2 bg-slate-900 rounded-xl p-1 border border-slate-700">
           <button type="button" onclick="stepTime('inputStartTime', -1)" class="w-14 h-11 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:text-white active:bg-slate-700 text-sm font-bold border border-slate-700 shadow-sm"><i class="fa-solid fa-minus mr-1"></i>30分</button>
-          <select id="inputStartTime" onchange="calculatePreview()" class="flex-1 bg-transparent text-2xl font-black text-white text-center focus:outline-none"></select>
+          <select id="inputStartTime" onchange="handleInputChange()" class="flex-1 bg-transparent text-2xl font-black text-white text-center focus:outline-none"></select>
           <button type="button" onclick="stepTime('inputStartTime', 1)" class="w-14 h-11 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:text-white active:bg-slate-700 text-sm font-bold border border-slate-700 shadow-sm"><i class="fa-solid fa-plus mr-1"></i>30分</button>
         </div>
       </div>
@@ -165,7 +165,7 @@
         </div>
         <div class="flex items-center space-x-2 bg-slate-900 rounded-xl p-1 border border-slate-700">
           <button type="button" onclick="stepTime('inputEndTime', -1)" class="w-14 h-11 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:text-white active:bg-slate-700 text-sm font-bold border border-slate-700 shadow-sm"><i class="fa-solid fa-minus mr-1"></i>30分</button>
-          <select id="inputEndTime" onchange="calculatePreview()" class="flex-1 bg-transparent text-2xl font-black text-white text-center focus:outline-none"></select>
+          <select id="inputEndTime" onchange="handleInputChange()" class="flex-1 bg-transparent text-2xl font-black text-white text-center focus:outline-none"></select>
           <button type="button" onclick="stepTime('inputEndTime', 1)" class="w-14 h-11 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:text-white active:bg-slate-700 text-sm font-bold border border-slate-700 shadow-sm"><i class="fa-solid fa-plus mr-1"></i>30分</button>
         </div>
       </div>
@@ -281,7 +281,7 @@
       if (newIndex < 0) newIndex = 0;
       if (newIndex >= select.options.length) newIndex = select.options.length - 1;
       select.selectedIndex = newIndex;
-      calculatePreview();
+      handleInputChange(); // 觸發統一狀態更新
     }
 
     function normalizeDate(rawDate) {
@@ -361,26 +361,42 @@
       onMonthChanged();
     }
 
-    // ★ 檢查按鈕狀態的函式
+    // ★ 檢查並更新按鈕狀態的核心函式
     function updateSaveButtonState() {
       const date = document.getElementById('inputDate').value;
+      const start = document.getElementById('inputStartTime').value;
+      const end = document.getElementById('inputEndTime').value;
+      const isHoliday = document.getElementById('isHolidayCheck').checked;
+      const type = isHoliday ? 'holiday' : currentAutoType;
+      
       const btn = document.getElementById('saveBtn');
       const btnIcon = document.getElementById('saveBtnIcon');
       const btnText = document.getElementById('saveBtnText');
       
-      const existingIndex = records.findIndex(r => normalizeDate(r.date) === normalizeDate(date));
+      const existRecord = records.find(r => normalizeDate(r.date) === normalizeDate(date));
       
-      if (existingIndex >= 0) {
-        // 今天已儲存過 -> 變綠色
-        btn.className = "w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] transition-all duration-300 text-slate-900 font-black text-base shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2";
+      // 若該日已有紀錄，且畫面上顯示的資料跟紀錄完全一樣，代表「目前狀態是已儲存的」
+      if (existRecord && existRecord.start === start && existRecord.end === end && existRecord.type === type) {
+        btn.className = "w-full py-3.5 rounded-xl bg-emerald-500 text-slate-900 font-black text-base shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-default pointer-events-none";
         btnIcon.className = "fa-solid fa-check-double";
-        btnText.textContent = "✅ 此日期已儲存 (可更新)";
+        btnText.textContent = "✅ 此日期已儲存";
+      } else if (existRecord) {
+        // 如果有紀錄，但您剛剛調動了時間，按鈕變黃色提示您「需要更新」
+        btn.className = "w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-[0.99] transition-all duration-200 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer pointer-events-auto";
+        btnIcon.className = "fa-solid fa-pen";
+        btnText.textContent = "更新並儲存覆蓋";
       } else {
-        // 還沒儲存 -> 恢復預設黃色
-        btn.className = "w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition-all duration-300 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2";
+        // 尚未有紀錄 -> 預設黃色按鈕
+        btn.className = "w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition-all duration-200 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer pointer-events-auto";
         btnIcon.className = "fa-solid fa-check";
         btnText.textContent = "下班確認儲存";
       }
+    }
+
+    // 當時間或紅字勾選改變時，統一呼叫此函式
+    function handleInputChange() {
+      calculatePreview();
+      updateSaveButtonState();
     }
 
     function onDateChanged() {
@@ -404,8 +420,21 @@
       }
       
       document.getElementById('isHolidayCheck').checked = false;
-      calculatePreview();
-      updateSaveButtonState(); // 日期改變時檢查按鈕狀態
+      
+      // 當日期切換時，如果有舊紀錄，自動把當天的上下班時間塞回去讓您看
+      const existRecord = records.find(r => normalizeDate(r.date) === normalizeDate(dateVal));
+      if (existRecord) {
+        document.getElementById('inputStartTime').value = existRecord.start;
+        document.getElementById('inputEndTime').value = existRecord.end;
+        if (existRecord.type === 'holiday') {
+          document.getElementById('isHolidayCheck').checked = true;
+        }
+      } else {
+        // 如果沒有，恢復預設上班時間
+        document.getElementById('inputStartTime').value = defaultStartTime;
+      }
+      
+      handleInputChange();
     }
 
     function onMonthChanged() {
@@ -424,7 +453,7 @@
 
       const timeStr = String(hh).padStart(2, '0') + ':' + String(min).padStart(2, '0');
       document.getElementById('inputEndTime').value = timeStr;
-      calculatePreview();
+      handleInputChange(); // 觸發統一狀態更新
     }
 
     function timeToMinutes(t) {
@@ -437,7 +466,13 @@
     function computeRecordHours(type, start, end) {
       const sMin = timeToMinutes(start);
       let eMin = timeToMinutes(end);
-      if (eMin <= sMin) eMin += 24 * 60; 
+      
+      // ★ 防呆：如果完全相等，就是 0 小時，避免跨日誤判為 24 小時
+      if (sMin === eMin) {
+        return { actualHours: 0, weightedHours: 0, h1_33: 0, h1_67: 0, h2_67: 0, h1_5: 0, actualDetail: '時間相同為0', weightedDetail: '無加班時數' };
+      }
+
+      if (eMin < sMin) eMin += 24 * 60; 
       const totalWorkedMin = eMin - sMin;
 
       let actualHours = 0, weightedHours = 0;
@@ -537,8 +572,6 @@
 
       const existingIndex = records.findIndex(r => normalizeDate(r.date) === date);
       if (existingIndex >= 0) {
-        let oldH = records[existingIndex].actualHours ?? records[existingIndex].hours ?? 0;
-        if (!confirm(`【${date}】已有紀錄 (實際 ${Number(oldH).toFixed(1)}h)，是否覆蓋更新？`)) return;
         records[existingIndex] = recordItem;
       } else {
         records.unshift(recordItem);
@@ -552,7 +585,7 @@
       document.getElementById('monthSelector').value = recordMonth;
       
       onMonthChanged();
-      updateSaveButtonState(); // 儲存後立即更新按鈕狀態
+      updateSaveButtonState(); // ★ 儲存完立刻觸發綠色打勾！
     }
 
     function deleteRecord(id) {
@@ -560,7 +593,7 @@
         records = records.filter(r => r.id !== id);
         localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
         onMonthChanged();
-        updateSaveButtonState(); // 刪除後立即更新按鈕狀態
+        updateSaveButtonState(); // 刪除後恢復預設狀態
       }
     }
 
