@@ -23,7 +23,6 @@
       appearance: none;
       text-align: center;
     }
-    /* 隱藏 details 預設的三角形 */
     details > summary::-webkit-details-marker {
       display: none;
     }
@@ -47,14 +46,14 @@
     <div class="flex items-center space-x-2">
       <button onclick="openProfileModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1">
         <i class="fa-solid fa-user-pen text-amber-400"></i>
-        <span>身分設定</span>
+        <span>設定/清除</span>
       </button>
     </div>
   </header>
 
   <main class="max-w-md mx-auto px-3.5 py-4 space-y-4">
     
-    <!-- 總時數看板 (只保留最重要的大字) -->
+    <!-- 總時數看板 -->
     <div class="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/60 rounded-2xl p-5 shadow-xl text-center">
       <div class="flex items-center justify-between mb-4 border-b border-slate-700/50 pb-3">
         <span class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
@@ -79,7 +78,6 @@
       </summary>
       
       <div class="p-4 border-t border-slate-700 space-y-5">
-        <!-- 實際工時分類 -->
         <div>
           <h3 class="text-[11px] text-slate-400 font-bold mb-2 flex items-center gap-1"><i class="fa-regular fa-clock"></i> 實際工時分類</h3>
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -98,7 +96,6 @@
           </div>
         </div>
 
-        <!-- 倍率對帳分類 -->
         <div>
           <h3 class="text-[11px] text-amber-500/80 font-bold mb-2 flex items-center gap-1"><i class="fa-solid fa-calculator"></i> 勞基法倍率總和 (發薪對帳用)</h3>
           <div class="grid grid-cols-2 gap-2 text-center">
@@ -183,9 +180,10 @@
         </div>
       </div>
 
-      <button onclick="saveRecord()" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-check"></i>
-        <span>下班確認儲存</span>
+      <!-- 動態變色儲存按鈕 -->
+      <button id="saveBtn" onclick="saveRecord()" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition-all duration-300 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+        <i id="saveBtnIcon" class="fa-solid fa-check"></i>
+        <span id="saveBtnText">下班確認儲存</span>
       </button>
     </div>
 
@@ -197,7 +195,6 @@
       </summary>
       
       <div class="p-3 border-t border-slate-700 space-y-3">
-        <!-- 匯出按鈕區 -->
         <div class="flex space-x-2 justify-end">
           <button onclick="copyMonthSummary()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-600 flex items-center gap-1.5">
             <i class="fa-regular fa-copy text-amber-400"></i> 複製對帳單
@@ -206,8 +203,6 @@
             <i class="fa-solid fa-file-csv text-emerald-400"></i> 匯出CSV
           </button>
         </div>
-        
-        <!-- 每日紀錄列表 -->
         <div id="recordsList" class="space-y-2"></div>
       </div>
     </details>
@@ -229,7 +224,6 @@
           <input type="text" id="profileNameInput" placeholder="例如：阿舜、劉司機" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
         </div>
         
-        <!-- 新增：重置按鈕 -->
         <div class="pt-4 border-t border-slate-800">
           <button onclick="factoryReset()" class="w-full py-2 rounded-xl bg-rose-950/50 hover:bg-rose-900 border border-rose-800 text-rose-400 font-bold text-xs flex items-center justify-center gap-2 transition">
             <i class="fa-solid fa-triangle-exclamation"></i> 刪除所有紀錄 (重置系統)
@@ -261,10 +255,9 @@
       initToday();
     });
 
-    // 清除所有資料的救援函式
     function factoryReset() {
       if(confirm("⚠️ 警告：這將會刪除您手機內「所有」的打卡紀錄與設定！\n確定要全部清空重來嗎？")) {
-        localStorage.clear(); // 直接清空這個網址所有的本地資料
+        localStorage.clear(); 
         records = [];
         alert("已全部清空！幫您重新整理網頁。");
         location.reload();
@@ -368,6 +361,28 @@
       onMonthChanged();
     }
 
+    // ★ 檢查按鈕狀態的函式
+    function updateSaveButtonState() {
+      const date = document.getElementById('inputDate').value;
+      const btn = document.getElementById('saveBtn');
+      const btnIcon = document.getElementById('saveBtnIcon');
+      const btnText = document.getElementById('saveBtnText');
+      
+      const existingIndex = records.findIndex(r => normalizeDate(r.date) === normalizeDate(date));
+      
+      if (existingIndex >= 0) {
+        // 今天已儲存過 -> 變綠色
+        btn.className = "w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] transition-all duration-300 text-slate-900 font-black text-base shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2";
+        btnIcon.className = "fa-solid fa-check-double";
+        btnText.textContent = "✅ 此日期已儲存 (可更新)";
+      } else {
+        // 還沒儲存 -> 恢復預設黃色
+        btn.className = "w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition-all duration-300 text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2";
+        btnIcon.className = "fa-solid fa-check";
+        btnText.textContent = "下班確認儲存";
+      }
+    }
+
     function onDateChanged() {
       const dateVal = document.getElementById('inputDate').value;
       if (!dateVal) return;
@@ -390,6 +405,7 @@
       
       document.getElementById('isHolidayCheck').checked = false;
       calculatePreview();
+      updateSaveButtonState(); // 日期改變時檢查按鈕狀態
     }
 
     function onMonthChanged() {
@@ -534,7 +550,9 @@
 
       const recordMonth = date.substring(0, 7);
       document.getElementById('monthSelector').value = recordMonth;
+      
       onMonthChanged();
+      updateSaveButtonState(); // 儲存後立即更新按鈕狀態
     }
 
     function deleteRecord(id) {
@@ -542,6 +560,7 @@
         records = records.filter(r => r.id !== id);
         localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
         onMonthChanged();
+        updateSaveButtonState(); // 刪除後立即更新按鈕狀態
       }
     }
 
