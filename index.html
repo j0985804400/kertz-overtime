@@ -64,7 +64,7 @@
         <input type="month" id="monthSelector" onchange="onMonthChanged()" class="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-sm text-amber-400 font-bold focus:outline-none focus:border-amber-400">
       </div>
       
-      <p class="text-xs text-slate-400 mb-1 font-bold">本月實際總加班 (在廠工時)</p>
+      <p class="text-xs text-slate-400 mb-1 font-bold">本月實際總加班 (工時)</p>
       <div class="flex items-baseline justify-center space-x-2">
         <span class="text-[64px] font-black tracking-tight text-white leading-none" id="statTotalActualHours">0.0</span>
         <span class="text-lg font-bold text-slate-400">h</span>
@@ -79,7 +79,7 @@
       </summary>
       
       <div class="p-4 border-t border-slate-700 space-y-5">
-        <!-- 實際工時分類 (大字體) -->
+        <!-- 實際工時分類 -->
         <div>
           <h3 class="text-[11px] text-slate-400 font-bold mb-2 flex items-center gap-1"><i class="fa-regular fa-clock"></i> 實際工時分類</h3>
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -98,7 +98,7 @@
           </div>
         </div>
 
-        <!-- 倍率對帳分類 (大字體) -->
+        <!-- 倍率對帳分類 -->
         <div>
           <h3 class="text-[11px] text-amber-500/80 font-bold mb-2 flex items-center gap-1"><i class="fa-solid fa-calculator"></i> 勞基法倍率總和 (發薪對帳用)</h3>
           <div class="grid grid-cols-2 gap-2 text-center">
@@ -173,7 +173,6 @@
         </div>
       </div>
 
-      <!-- 試算結果面版 (極簡化) -->
       <div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex justify-between items-center">
         <div>
           <span class="text-[11px] text-slate-400 block mb-0.5">本次實際工時</span>
@@ -208,7 +207,7 @@
           </button>
         </div>
         
-        <!-- 極簡化的每日清單 -->
+        <!-- 可再點擊展開的每日清單 -->
         <div id="recordsList" class="space-y-2"></div>
       </div>
     </details>
@@ -226,7 +225,7 @@
       <div class="space-y-3">
         <div>
           <label class="text-xs text-slate-300 block mb-1">司機姓名 / 車號</label>
-          <input type="text" id="profileNameInput" placeholder="例如：阿舜、劉司機" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+          <input type="text" id="profileNameInput" placeholder="例如：阿舜" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
         </div>
       </div>
       <div class="pt-2 flex space-x-2">
@@ -237,8 +236,9 @@
   </div>
 
   <script>
-    const STORAGE_KEY_RECORDS = 'kezhixinj_driver_records_v3'; 
-    const STORAGE_KEY_DEFAULT_START = 'kezhixinj_default_start_v3';
+    // ★ 復原 Key 讓舊紀錄自動回歸，並實作資料合併
+    const STORAGE_KEY_RECORDS = 'kezhixinj_driver_records_web'; 
+    const STORAGE_KEY_DEFAULT_START = 'kezhixinj_default_start_web';
     const STORAGE_KEY_PROFILE = 'kezhixinj_driver_profile_web';
 
     let records = [];
@@ -282,8 +282,25 @@
         if (storedDefault) defaultStartTime = storedDefault;
         document.getElementById('inputStartTime').value = defaultStartTime;
 
-        const storedRecords = localStorage.getItem(STORAGE_KEY_RECORDS);
-        if (storedRecords) records = JSON.parse(storedRecords);
+        // ★ 自動合併舊版與新版產生的資料
+        let merged = [];
+        let webRecordsStr = localStorage.getItem('kezhixinj_driver_records_web');
+        let v3RecordsStr = localStorage.getItem('kezhixinj_driver_records_v3');
+        
+        if (webRecordsStr) merged = JSON.parse(webRecordsStr);
+        if (v3RecordsStr) {
+           let v3Records = JSON.parse(v3RecordsStr);
+           v3Records.forEach(item => {
+               if (!merged.find(m => m.id === item.id || m.date === item.date)) {
+                   merged.push(item);
+               }
+           });
+           localStorage.removeItem('kezhixinj_driver_records_v3'); // 合併後清除避免重複
+        }
+        
+        merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+        records = merged;
+        localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
       } catch (e) { console.error(e); }
     }
 
@@ -359,7 +376,7 @@
     function computeRecordHours(type, start, end) {
       const sMin = timeToMinutes(start);
       let eMin = timeToMinutes(end);
-      if (eMin <= sMin) eMin += 24 * 60; // 跨夜
+      if (eMin <= sMin) eMin += 24 * 60; 
       const totalWorkedMin = eMin - sMin;
 
       let actualHours = 0, weightedHours = 0;
@@ -370,8 +387,8 @@
         actualHours = Math.max(0, totalWorkedMin - 30) / 60; 
         h1_5 = actualHours;
         weightedHours = actualHours * 1.5;
-        actualDetail = `扣0.5h休息`;
-        weightedDetail = `紅字：${h1_5.toFixed(1)}h × 1.5 = ${weightedHours.toFixed(2)}h`;
+        actualDetail = `扣除 0.5h`;
+        weightedDetail = `全天 1.5 倍`;
       } 
       else if (type === 'weekend' || type === 'saturday') { 
         actualHours = Math.max(0, totalWorkedMin - 30) / 60;
@@ -379,12 +396,12 @@
         h1_67 = Math.max(0, Math.min(6, actualHours - 2)); 
         h2_67 = Math.max(0, actualHours - 8); 
         weightedHours = (h1_33 * 1.33) + (h1_67 * 1.67) + (h2_67 * 2.67);
-        actualDetail = `扣0.5h休息`;
+        actualDetail = `扣除 0.5h`;
         let parts = [];
         if (h1_33 > 0) parts.push(`(${h1_33}×1.33)`);
         if (h1_67 > 0) parts.push(`(${h1_67}×1.67)`);
         if (h2_67 > 0) parts.push(`(${h2_67}×2.67)`);
-        weightedDetail = `假日：${parts.join('+')} = ${weightedHours.toFixed(2)}h`;
+        weightedDetail = parts.join(' + ');
       } 
       else { 
         let earlyMin = 0, lateMin = 0;
@@ -406,7 +423,7 @@
            let parts = [];
            if (h1_33 > 0) parts.push(`(${h1_33}×1.33)`);
            if (h1_67 > 0) parts.push(`(${h1_67}×1.67)`);
-           weightedDetail = `平日：${parts.join('+')} = ${weightedHours.toFixed(2)}h`;
+           weightedDetail = parts.join(' + ');
         } else {
            weightedDetail = '無加班時數';
         }
@@ -482,8 +499,7 @@
       const monthRecords = records.filter(r => r.date.startsWith(filterValue));
 
       monthRecords.forEach(r => {
-        let rec = r;
-        if (r.h1_33 === undefined) rec = computeRecordHours(r.type, r.start, r.end);
+        let rec = r.h1_33 !== undefined ? r : computeRecordHours(r.type, r.start, r.end);
 
         totalActual += rec.actualHours;
         
@@ -523,7 +539,7 @@
         return;
       }
       
-      // 極簡卡片：移除所有倍率文字，只留下日期、類別、時間、實際大字工時
+      // ★ 將每一筆紀錄變成可點擊展開的 <details> 卡片
       container.innerHTML = monthRecords.map(r => {
         let typeBadge = r.type === 'weekday' ? '<span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800/60 text-[10px]">平日</span>' :
                         (r.type === 'weekend' || r.type === 'saturday') ? '<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 text-[10px]">假日</span>' :
@@ -532,22 +548,39 @@
         let rec = r.h1_33 !== undefined ? r : computeRecordHours(r.type, r.start, r.end);
 
         return `
-          <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 flex justify-between items-center">
-            <div>
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-bold text-white">${r.date.substring(5)}</span>
-                ${typeBadge}
+          <details class="bg-slate-800/50 border border-slate-700/50 rounded-xl group/card overflow-hidden">
+            <!-- 表面極簡畫面 -->
+            <summary class="p-3 flex justify-between items-center cursor-pointer list-none select-none hover:bg-slate-800/70 transition">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm font-bold text-white">${r.date.substring(5)}</span>
+                  ${typeBadge}
+                </div>
+                <div class="text-xs text-slate-400 font-medium">${r.start} ~ ${r.end}</div>
               </div>
-              <div class="text-xs text-slate-400 font-medium">${r.start} ~ ${r.end}</div>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="text-right">
-                <span class="text-2xl font-black text-amber-400">${rec.actualHours.toFixed(1)}</span>
-                <span class="text-xs text-slate-400">h</span>
+              <div class="flex items-center gap-4">
+                <div class="text-right">
+                  <span class="text-2xl font-black text-amber-400">${rec.actualHours.toFixed(1)}</span>
+                  <span class="text-xs text-slate-400">h</span>
+                </div>
+                <div class="text-slate-500 group-open/card:rotate-180 transition-transform duration-300">
+                  <i class="fa-solid fa-chevron-down text-sm"></i>
+                </div>
               </div>
-              <button onclick="deleteRecord(${r.id})" class="text-slate-500 hover:text-rose-400 p-2"><i class="fa-solid fa-trash-can text-sm"></i></button>
+            </summary>
+            
+            <!-- 點開後顯示詳細算式與刪除按鈕 -->
+            <div class="p-3 border-t border-slate-700/50 bg-slate-900/80 relative">
+              <button onclick="deleteRecord(${r.id})" class="absolute right-3 top-3 text-slate-500 hover:text-rose-400 p-2 bg-slate-800 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-trash-can"></i> 刪除
+              </button>
+              <div class="space-y-1.5 pr-14">
+                <p class="text-[11px] text-slate-400"><span class="text-slate-500 font-medium">實際工時：</span><br>${rec.actualDetail}</p>
+                <p class="text-[11px] text-amber-500/80"><span class="text-amber-600/80 font-medium">倍率算式：</span><br>${rec.weightedDetail}</p>
+                <p class="text-[11px] text-amber-400 font-bold"><span class="text-amber-600/80 font-medium">算薪總計：</span><br>${rec.weightedHours.toFixed(2)} h</p>
+              </div>
             </div>
-          </div>`;
+          </details>`;
       }).join('');
     }
 
@@ -577,7 +610,7 @@
       });
       
       text += `--------------------------\n`;
-      text += `【實際在廠工時】\n平日:${actWeek.toFixed(1)}h | 假日:${actEnd.toFixed(1)}h | 紅字:${actHol.toFixed(1)}h\n`;
+      text += `【實際工時】\n平日:${actWeek.toFixed(1)}h | 假日:${actEnd.toFixed(1)}h | 紅字:${actHol.toFixed(1)}h\n`;
       text += `總計在廠：${totalAct.toFixed(1)} h\n\n`;
       text += `【算薪倍率統計 (核對用)】\n`;
       text += `1.33倍：${sum133.toFixed(1)} h\n1.67倍：${sum167.toFixed(1)} h\n2.67倍：${sum267.toFixed(1)} h\n紅字(1.5倍)：${sum15.toFixed(1)} h\n`;
