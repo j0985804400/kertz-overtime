@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>科治新技 運輸課加班速記</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    input[type="time"], input[type="date"] {
+      color-scheme: dark;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-24 select-none">
+
+  <!-- 頂部導航 -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-4 py-3 flex items-center justify-between shadow-md">
+    <div class="flex items-center space-x-2.5">
+      <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-lg">
+        <i class="fa-solid fa-truck-moving"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
+          科治新技 <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">網頁版</span>
+        </h1>
+        <p class="text-[11px] text-slate-400" id="driverProfileLabel">本機專用（尚未設定司機）</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center space-x-2">
+      <button onclick="openProfileModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1">
+        <i class="fa-solid fa-user-pen text-amber-400"></i>
+        <span>身分設定</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-3.5 py-4 space-y-4">
+    <!-- 本月累計看板 -->
+    <div class="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/60 rounded-2xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-calendar-check text-amber-400"></i>
+          <span id="currentMonthLabel">本月加班時數</span>
+        </span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-bold" id="totalRecordsCount">0 筆</span>
+      </div>
+      
+      <div class="flex items-baseline space-x-2 my-1">
+        <span class="text-4xl font-black tracking-tight text-white" id="statTotalHours">0.0</span>
+        <span class="text-sm font-semibold text-slate-400">小時 (h)</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-700/50 text-center">
+        <div class="bg-slate-800/60 rounded-xl py-2 px-1 border border-slate-700/40">
+          <span class="text-[11px] text-slate-400 block mb-0.5">平日加班</span>
+          <span class="text-base font-bold text-sky-400" id="statWeekdayHours">0.0</span>
+          <span class="text-[10px] text-slate-500 block">h</span>
+        </div>
+        <div class="bg-slate-800/60 rounded-xl py-2 px-1 border border-slate-700/40">
+          <span class="text-[11px] text-slate-400 block mb-0.5">週六出勤</span>
+          <span class="text-base font-bold text-emerald-400" id="statSaturdayHours">0.0</span>
+          <span class="text-[10px] text-slate-500 block">扣0.5h</span>
+        </div>
+        <div class="bg-slate-800/60 rounded-xl py-2 px-1 border border-slate-700/40">
+          <span class="text-[11px] text-slate-400 block mb-0.5">紅字出勤</span>
+          <span class="text-base font-bold text-rose-400" id="statHolidayHours">0.0</span>
+          <span class="text-[10px] text-slate-500 block">扣0.5h</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下班單次輸入卡片 -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+          <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> 下班打卡登記
+        </h2>
+        <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-medium" id="weekdayNameDisplay">--</span>
+      </div>
+
+      <div class="grid grid-cols-12 gap-2 items-center">
+        <div class="col-span-7">
+          <label class="text-[11px] text-slate-400 block mb-1 font-medium">日期</label>
+          <input type="date" id="inputDate" onchange="onDateChanged()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-400">
+        </div>
+        <div class="col-span-5">
+          <label class="text-[11px] text-slate-400 block mb-1 font-medium">出勤類別</label>
+          <select id="inputType" onchange="calculatePreview()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-2 text-sm text-white font-semibold focus:outline-none focus:border-amber-400">
+            <option value="weekday">平日</option>
+            <option value="saturday">週六 (扣0.5h)</option>
+            <option value="holiday">紅字 (扣0.5h)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/40 rounded-xl p-3 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold text-slate-300">上班出勤時間</label>
+          <button type="button" onclick="saveAsDefaultStartTime()" class="text-[11px] text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1">
+            <i class="fa-solid fa-thumbtack"></i> 設為固定時間
+          </button>
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="time" id="inputStartTime" onchange="calculatePreview()" value="06:30" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-base font-black text-white tracking-wider focus:outline-none focus:border-amber-400 text-center">
+          <div class="flex gap-1">
+            <button type="button" onclick="setStartTime('06:30')" class="px-2.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-200">06:30</button>
+            <button type="button" onclick="setStartTime('07:00')" class="px-2.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-200">07:00</button>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-400 flex items-center gap-1">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-[10px]"></i>
+          目前固定：<span id="savedDefaultNotice" class="text-amber-300 font-bold">06:30</span>
+        </p>
+      </div>
+
+      <div class="bg-slate-800/40 rounded-xl p-3 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold text-slate-300">下班打卡時間</label>
+          <span class="text-[11px] text-slate-400">卸完貨下班時間</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="time" id="inputEndTime" onchange="calculatePreview()" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-base font-black text-white tracking-wider focus:outline-none focus:border-amber-400 text-center">
+          <button type="button" onclick="setEndTimeNow()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-bolt"></i> 現在
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
+        <div>
+          <span class="text-[11px] text-slate-400 block mb-0.5">本次試算工時</span>
+          <span class="text-xs text-slate-300 font-medium" id="calcDetailText">--</span>
+        </div>
+        <div class="text-right">
+          <span class="text-2xl font-black text-amber-400" id="previewHours">0.0</span>
+          <span class="text-xs text-slate-400 font-semibold">小時</span>
+        </div>
+      </div>
+
+      <button onclick="saveRecord()" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] transition text-slate-950 font-black text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-check"></i>
+        <span>下班確認儲存</span>
+      </button>
+    </div>
+
+    <!-- 歷史紀錄與匯出 -->
+    <div class="space-y-3 pt-1">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">打卡紀錄清單</h3>
+        <div class="flex space-x-1.5">
+          <button onclick="copyMonthSummary()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 flex items-center gap-1">
+            <i class="fa-regular fa-copy text-amber-400"></i> 複製清單
+          </button>
+          <button onclick="exportCSV()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 flex items-center gap-1">
+            <i class="fa-solid fa-file-csv text-emerald-400"></i> 匯出CSV
+          </button>
+        </div>
+      </div>
+
+      <div id="recordsList" class="space-y-2"></div>
+    </div>
+  </main>
+
+  <!-- 身分設定 Modal -->
+  <div id="profileModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i class="fa-solid fa-id-card text-amber-400"></i> 設定個人司機姓名
+        </h3>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-300 block mb-1">司機姓名 / 車號</label>
+          <input type="text" id="profileNameInput" placeholder="例如：阿舜、劉司機" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+        </div>
+      </div>
+
+      <div class="pt-2 flex space-x-2">
+        <button onclick="closeProfileModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold">取消</button>
+        <button onclick="saveProfile()" class="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm">儲存設定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY_RECORDS = 'kezhixinj_driver_records_web';
+    const STORAGE_KEY_DEFAULT_START = 'kezhixinj_default_start_web';
+    const STORAGE_KEY_PROFILE = 'kezhixinj_driver_profile_web';
+
+    let records = [];
+    let defaultStartTime = '06:30';
+    let profile = { name: '' };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStorage();
+      initToday();
+      renderStats();
+      renderList();
+    });
+
+    function loadStorage() {
+      try {
+        const storedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+        if (storedProfile) profile = JSON.parse(storedProfile);
+        updateProfileDisplay();
+
+        const storedDefault = localStorage.getItem(STORAGE_KEY_DEFAULT_START);
+        if (storedDefault) defaultStartTime = storedDefault;
+        document.getElementById('inputStartTime').value = defaultStartTime;
+        document.getElementById('savedDefaultNotice').textContent = defaultStartTime;
+
+        const storedRecords = localStorage.getItem(STORAGE_KEY_RECORDS);
+        if (storedRecords) records = JSON.parse(storedRecords);
+      } catch (e) { console.error(e); }
+    }
+
+    function updateProfileDisplay() {
+      const label = document.getElementById('driverProfileLabel');
+      if (profile.name && profile.name.trim() !== '') {
+        label.textContent = `司機：${profile.name}`;
+      } else {
+        label.textContent = `本機專用（尚未設定司機）`;
+      }
+    }
+
+    function initToday() {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
+      
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('inputEndTime').value = `${hh}:${min}`;
+
+      onDateChanged();
+    }
+
+    function onDateChanged() {
+      const dateVal = document.getElementById('inputDate').value;
+      if (!dateVal) return;
+
+      const dateObj = new Date(dateVal + 'T00:00:00');
+      const day = dateObj.getDay();
+      const daysMap = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      
+      document.getElementById('weekdayNameDisplay').textContent = daysMap[day];
+
+      const typeSelect = document.getElementById('inputType');
+      if (day === 6) typeSelect.value = 'saturday';
+      else if (day === 0) typeSelect.value = 'holiday';
+      else typeSelect.value = 'weekday';
+
+      calculatePreview();
+    }
+
+    function setStartTime(timeStr) {
+      document.getElementById('inputStartTime').value = timeStr;
+      calculatePreview();
+    }
+
+    function saveAsDefaultStartTime() {
+      const currentStart = document.getElementById('inputStartTime').value;
+      if (!currentStart) return;
+      defaultStartTime = currentStart;
+      localStorage.setItem(STORAGE_KEY_DEFAULT_START, defaultStartTime);
+      document.getElementById('savedDefaultNotice').textContent = defaultStartTime;
+      alert(`已將【${defaultStartTime}】設為固定上班時間！`);
+    }
+
+    function setEndTimeNow() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('inputEndTime').value = `${hh}:${min}`;
+      calculatePreview();
+    }
+
+    function timeToMinutes(t) {
+      if (!t) return 0;
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function computeRecordHours(type, start, end) {
+      const sMin = timeToMinutes(start);
+      let eMin = timeToMinutes(end);
+
+      if (eMin < sMin) eMin += 24 * 60;
+      const totalWorkedMin = eMin - sMin;
+
+      if (type === 'saturday' || type === 'holiday') {
+        const netMin = Math.max(0, totalWorkedMin - 30);
+        const hours = Math.round((netMin / 60) * 10) / 10;
+        return {
+          total: hours,
+          detail: `${type === 'saturday' ? '週六' : '紅字'}：在廠 ${(totalWorkedMin/60).toFixed(1)}h - 扣0.5h = ${hours}h`
+        };
+      } else {
+        let earlyMin = 0, lateMin = 0;
+        const normalStart = 8 * 60;
+        if (sMin < normalStart) earlyMin = normalStart - sMin;
+        const normalEnd = 18 * 60;
+        if (eMin > normalEnd) lateMin = eMin - normalEnd;
+
+        const earlyH = Math.round((earlyMin / 60) * 10) / 10;
+        const lateH = Math.round((lateMin / 60) * 10) / 10;
+        const total = Math.round((earlyH + lateH) * 10) / 10;
+
+        return {
+          total: total,
+          detail: `平日加班：早出 ${earlyH}h + 延後 ${lateH}h`
+        };
+      }
+    }
+
+    function calculatePreview() {
+      const type = document.getElementById('inputType').value;
+      const start = document.getElementById('inputStartTime').value;
+      const end = document.getElementById('inputEndTime').value;
+
+      if (!start || !end) {
+        document.getElementById('previewHours').textContent = '0.0';
+        document.getElementById('calcDetailText').textContent = '請確認上下班時間';
+        return;
+      }
+
+      const res = computeRecordHours(type, start, end);
+      document.getElementById('previewHours').textContent = res.total.toFixed(1);
+      document.getElementById('calcDetailText').textContent = res.detail;
+    }
+
+    function saveRecord() {
+      const date = document.getElementById('inputDate').value;
+      const type = document.getElementById('inputType').value;
+      const start = document.getElementById('inputStartTime').value;
+      const end = document.getElementById('inputEndTime').value;
+
+      if (!date || !start || !end) {
+        alert('請填寫完整日期與上下班時間');
+        return;
+      }
+
+      const res = computeRecordHours(type, start, end);
+      const recordItem = { id: Date.now(), date, type, start, end, hours: res.total, detail: res.detail };
+
+      const existingIndex = records.findIndex(r => r.date === date);
+      if (existingIndex >= 0) {
+        if (!confirm(`【${date}】已有打卡紀錄 (${records[existingIndex].hours}h)，是否更新覆蓋？`)) return;
+        records[existingIndex] = recordItem;
+      } else {
+        records.unshift(recordItem);
+      }
+
+      records.sort((a, b) => new Date(b.date) - new Date(a.date));
+      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+      renderStats();
+      renderList();
+    }
+
+    function deleteRecord(id) {
+      if (confirm('確定要刪除這筆紀錄嗎？')) {
+        records = records.filter(r => r.id !== id);
+        localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+        renderStats();
+        renderList();
+      }
+    }
+
+    function renderStats() {
+      let total = 0, weekday = 0, saturday = 0, holiday = 0;
+      const curDate = new Date(document.getElementById('inputDate').value || new Date());
+      const curYear = curDate.getFullYear(), curMonth = curDate.getMonth() + 1;
+      document.getElementById('currentMonthLabel').textContent = `${curYear}年${curMonth}月 加班總計`;
+
+      const monthRecords = records.filter(r => {
+        const d = new Date(r.date);
+        return d.getFullYear() === curYear && (d.getMonth() + 1) === curMonth;
+      });
+
+      monthRecords.forEach(r => {
+        total += r.hours;
+        if (r.type === 'weekday') weekday += r.hours;
+        else if (r.type === 'saturday') saturday += r.hours;
+        else if (r.type === 'holiday') holiday += r.hours;
+      });
+
+      document.getElementById('statTotalHours').textContent = total.toFixed(1);
+      document.getElementById('statWeekdayHours').textContent = weekday.toFixed(1);
+      document.getElementById('statSaturdayHours').textContent = saturday.toFixed(1);
+      document.getElementById('statHolidayHours').textContent = holiday.toFixed(1);
+      document.getElementById('totalRecordsCount').textContent = `${monthRecords.length} 筆`;
+    }
+
+    function renderList() {
+      const container = document.getElementById('recordsList');
+      if (records.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs bg-slate-900/50 rounded-xl border border-slate-800"><i class="fa-solid fa-clipboard-list text-2xl mb-1 text-slate-600 block"></i>尚無紀錄，下班輸入一次即可累計！</div>`;
+        return;
+      }
+      container.innerHTML = records.map(r => {
+        let typeBadge = r.type === 'weekday' ? '<span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800/60 text-[10px]">平日</span>' :
+                        r.type === 'saturday' ? '<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 text-[10px]">週六</span>' :
+                        '<span class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800/60 text-[10px]">紅字</span>';
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <span class="text-xs font-bold text-white">${r.date}</span>${typeBadge}
+                <span class="text-[11px] text-slate-400">${r.start} ~ ${r.end}</span>
+              </div>
+              <p class="text-[11px] text-slate-400">${r.detail}</p>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="text-base font-black text-amber-400">${r.hours.toFixed(1)} <span class="text-xs font-normal text-slate-400">h</span></span>
+              <button onclick="deleteRecord(${r.id})" class="text-slate-500 hover:text-rose-400 p-1.5"><i class="fa-regular fa-trash-can text-sm"></i></button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function copyMonthSummary() {
+      if (records.length === 0) return alert('目前無紀錄可複製');
+      const curDate = new Date(document.getElementById('inputDate').value || new Date());
+      const curYear = curDate.getFullYear(), curMonth = curDate.getMonth() + 1;
+      const monthRecords = records.filter(r => new Date(r.date).getFullYear() === curYear && (new Date(r.date).getMonth() + 1) === curMonth);
+      let total = 0, text = `【科治新技 運輸課】加班對帳單\n${profile.name ? '司機：' + profile.name + '\n' : ''}月份：${curYear}年${curMonth}月\n--------------------------\n`;
+      monthRecords.forEach(r => { total += r.hours; text += `${r.date} (${r.type === 'weekday' ? '平日' : r.type === 'saturday' ? '週六' : '紅字'}) ${r.start}-${r.end} => ${r.hours}h\n`; });
+      text += `--------------------------\n總計工時：${total.toFixed(1)} h\n`;
+      navigator.clipboard.writeText(text).then(() => alert('已複製！可貼到 LINE。')).catch(() => alert('複製失敗'));
+    }
+
+    function exportCSV() {
+      if (records.length === 0) return alert('無紀錄可匯出');
+      let csv = '\uFEFF日期,類型,上班時間,下班時間,加班時數(h),說明\n';
+      records.forEach(r => csv += `"${r.date}","${r.type === 'weekday' ? '平日' : r.type === 'saturday' ? '週六' : '紅字'}","${r.start}","${r.end}","${r.hours}","${r.detail}"\n`);
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      link.setAttribute('download', `科治新技加班紀錄${profile.name ? '_' + profile.name : ''}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function openProfileModal() {
+      document.getElementById('profileNameInput').value = profile.name || '';
+      document.getElementById('profileModal').classList.remove('hidden');
+    }
+    function closeProfileModal() { document.getElementById('profileModal').classList.add('hidden'); }
+    function saveProfile() {
+      profile.name = document.getElementById('profileNameInput').value.trim();
+      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+      updateProfileDisplay();
+      closeProfileModal();
+    }
+  </script>
+</body>
+</html>
